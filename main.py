@@ -6,14 +6,25 @@
 ################################################################################
 
 from local.WiDCCProtocol import WiDCCProtocol
-from local.WiDCCLocoDescriptor import WiDCCLocoDescriptor
-from drivers.wifi.bcm43362 import bcm43362 as bcm
+from local.WiDCCLocoDescriptor import WiDCCLocoDescriptor    
+from bcm43362 import bcm43362 as bcm
 from wireless import wifi
-from enum import Enum
+import socket
+#from enum import Enum
 
 
 # set up state machine
-States = Enum('States', 'INIT CONFIG WIFI_START  WIFI_CONFIGURE WIFI_TCP_LINK RUNNING ERROR')
+#States = Enum('States', 'INIT CONFIG WIFI_START  WIFI_CONFIGURE WIFI_TCP_LINK RUNNING ERROR')
+class States():
+    def __init__(self):
+        self.INIT = 1
+        self.CONFIG = 2
+        self.WIFI_START = 3
+        self.WIFI_CONFIGURE = 4
+        self.WIFI_TCP_LINK = 5
+        self.RUNNING = 6
+        self.ERROR = 7
+        
 
 # everything shoud start from INIT :)
 my_state = States.INIT
@@ -21,20 +32,7 @@ my_state = States.INIT
 # create the loco descriptor
 my_loco = WiDCCLocoDescriptor.LocoDescriptor()
 
-if my_state = States.INIT:
-    f_init()
-elif my_state = States.CONFIG:
-    f_config()
-elif my_state = States.WIFI_START:
-    f_wifi_start()
-elif my_state = States.WIFI_CONFIGURE:
-    f_wifi_configure()
-elif my_state = States.WIFI_TCP_LINK:
-    f_wifi_tcp_link()
-elif my_state = States.RUNNING:
-    f_running()
-elif my_state = States.ERROR:
-    f_error()
+
 
 
 ###########################
@@ -43,7 +41,7 @@ elif my_state = States.ERROR:
 
 # INIT: startup decoder and drivers
 def f_init():
-    
+    print("INIT")
     # start wifi driver
     bcm.auto_init()
     
@@ -54,10 +52,11 @@ def f_init():
 
 # CONFIG: configure the decoder
 def f_config():
-
+    print("CONFIG")
     # check if config.txt exists
     try:
-        with open('spamspam.txt', 'w', opener=opener) as f
+        print("open config file")
+        #with open('spamspam.txt', 'w', opener=opener) as f
     except:
         # create the first config
         pass
@@ -67,7 +66,7 @@ def f_config():
     # import from file
     
     # check if connection data are available
-    if my_config.wifi_net ==  None:
+    if my_loco.wifi_config['net'] ==  None:
         my_state = States.WIFI_CONFIGURE
     else:
         # move to state "try connect"
@@ -77,21 +76,69 @@ def f_config():
 
 # WIFI_START: connect to network
 def f_wifi_start():
-    pass
+    print("WIFI_START")
     
+    for retry in range(10):
+        try:
+            wifi.link("Network-SSID", wifi.WIFI_WPA2, "password")
+            
+        except Exception as e:
+            print(e)
+
+
+
+
+
 # WIFI_CONFIGURE: set up of wifi connection's params
 def f_wifi_configure():
-    pass
+    print("WIFI_CONFIGURE")
+    
 
 # WIFI_TCP_LINK: any final action needed before operation
 def f_wifi_tcp_link():
-    pass
+    print("WIFI_TCP_LINK")
+    if not wifi.is_linked():
+        my_state = States.WIFI_START
+        
+    my_loco.sock = socket.socket()
+    
+    my_loco.sock.connect(("192.168.1.109",87246))
+    
+
     
 # RUNNING: the loco is ready to run
 def f_running():
-    pass
+    print("RUNNING")
+    if not wifi.is_linked():
+        my_state = States.WIFI_START
+        
+        
 
 # ERROR: special state where the loco informs about problems
 #        with special blinking patterns
 def f_error():
-    pass
+    print("ERROR")
+    
+    
+    
+###########################
+# mail loop
+###########################
+
+while True:
+    if my_state == States.INIT:
+        f_init()
+    elif my_state == States.CONFIG:
+        f_config()
+    elif my_state == States.WIFI_START:
+        f_wifi_start()
+    elif my_state == States.WIFI_CONFIGURE:
+        f_wifi_configure()
+    elif my_state == States.WIFI_TCP_LINK:
+        f_wifi_tcp_link()
+    elif my_state == States.RUNNING:
+        f_running()
+    elif my_state == States.ERROR:
+        f_error()
+    else:
+        pass
