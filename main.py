@@ -10,11 +10,12 @@ from local.WiDCCLocoDescriptor import WiDCCLocoDescriptor
 from bcm43362 import bcm43362 as bcm
 from wireless import wifi
 import socket
-#from enum import Enum
+import timers
+import config
+
 
 
 # set up state machine
-#States = Enum('States', 'INIT CONFIG WIFI_START  WIFI_CONFIGURE WIFI_TCP_LINK RUNNING ERROR')
 class States():
     def __init__(self):
         self.INIT = 1
@@ -31,7 +32,9 @@ my_state = States.INIT
 
 # create the loco descriptor
 my_loco = WiDCCLocoDescriptor.LocoDescriptor()
-
+my_socket = socket.socket()
+my_com_timer = timers.timer()
+my_config = config.Config()
 
 
 
@@ -42,6 +45,7 @@ my_loco = WiDCCLocoDescriptor.LocoDescriptor()
 # INIT: startup decoder and drivers
 def f_init():
     print("INIT")
+    
     # start wifi driver
     bcm.auto_init()
     
@@ -63,10 +67,11 @@ def f_config():
     
     
     # read config.txt file
-    # import from file
+    # set loco ID
+    my_loco.loco_id = my_config.id
     
     # check if connection data are available
-    if my_loco.wifi_config['net'] ==  None:
+    if my_config.net ==  None:
         my_state = States.WIFI_CONFIGURE
     else:
         # move to state "try connect"
@@ -80,11 +85,14 @@ def f_wifi_start():
     
     for retry in range(10):
         try:
-            wifi.link("Network-SSID", wifi.WIFI_WPA2, "password")
+            wifi.link(my_config.net, wifi.WIFI_WPA2, my_config.pwd)
             
         except Exception as e:
+            my_state = States.WIFI_CONFIGURE
             print(e)
 
+    if wifi.is_linked():
+        my_state = States.WIFI_TCP_LINK
 
 
 
@@ -100,10 +108,7 @@ def f_wifi_tcp_link():
     if not wifi.is_linked():
         my_state = States.WIFI_START
         
-    my_loco.sock = socket.socket()
-    
-    my_loco.sock.connect(("192.168.1.109",87246))
-    
+    my_socket.connect(my_config.server)
 
     
 # RUNNING: the loco is ready to run
