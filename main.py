@@ -8,11 +8,11 @@
 from local.WiDCCProtocol import WiDCCProtocol
 from local.WiDCCLocoDescriptor import WiDCCLocoDescriptor    
 from bcm43362 import bcm43362 as bcm
-from wireless import wifi
+from wireless import wifi#, select
 import socket
 import timers
 import config
-
+import threading
 
 
 # set up state machine
@@ -27,15 +27,23 @@ class States():
         self.ERROR = 7
         
 
-# everything shoud start from INIT :)
+# everything should start from INIT :)
 my_state = States.INIT
 
-# create the loco descriptor
+# creating the global variables
 my_loco = WiDCCLocoDescriptor.LocoDescriptor()
 my_socket = socket.socket()
+my_socket.setblocking(False)
+my_socket_lock = threading.Lock()
+#socket_list = List()
+#socket_list.append(my_socket)
 my_com_timer = timers.timer()
+my_com_timer_counter = 0
 my_config = config.Config()
-
+msg_queue_in = Fifo(4)
+msg_queue_out = Fifo(2)
+msg_queue_in_lock = threading.Lock()
+msg_queue_out_lock = threading.Lock()
 
 
 ###########################
@@ -48,6 +56,7 @@ def f_init():
     
     # start wifi driver
     bcm.auto_init()
+    sleep(250)
     
     # move to CONFIG
     my_state = States.CONFIG
@@ -63,12 +72,16 @@ def f_config():
         #with open('spamspam.txt', 'w', opener=opener) as f
     except:
         # create the first config
-        pass
+        my_state = States.WIFI_CONFIGURE
+        return
     
     
     # read config.txt file
     # set loco ID
-    my_loco.loco_id = my_config.id
+    if my_config.id:
+        my_loco.loco_id = my_config.id
+    else:
+        my_loco.loco_id = random_number #look for embedded random function
     
     # check if connection data are available
     if my_config.net ==  None:
@@ -91,6 +104,7 @@ def f_wifi_start():
             my_state = States.WIFI_CONFIGURE
             print(e)
 
+    sleep(250)
     if wifi.is_linked():
         my_state = States.WIFI_TCP_LINK
 
@@ -100,24 +114,159 @@ def f_wifi_start():
 # WIFI_CONFIGURE: set up of wifi connection's params
 def f_wifi_configure():
     print("WIFI_CONFIGURE")
+    # understand how to create a soft AP
     
+
+# read and send helper functions for transmitting 
+# data over TCP
+def f_tcp_send_msg(msg):
+     # transmit a full message over TCP
+     # it checks if the message is fully 
+     # transmitted, if not reiterates
+     msg_len = len(msg)
+     sent_len = 0
+     while sent_len < msg_len:
+         buf_len = my_socket.send(msg[sent_len:])
+         sent_len += buf_len
+
+def f_tcp_feedback_msg():
+     # waits for the server reply - blocking!!!
+     
+     data = my_socket.recv(128)
+     sent_len = len(data)
+     while sent_len:
+         buf = my_socket.recv(128)
+         data += buf
+         sent_len = buf_len
+         
+     return data
+
+# function to be threaded that handle communication
+# over tcp
+def f_tcp_communication():
+    print("tcp_communication start")
+    
+    # do I need lock on the socket to prevent
+    # simultaneous connections attempt?
+    with my_socket_lock:
+        print("tcp_communication lock acquired")
+        my_socket.connect(my_config.server)
+        if msg_queue_out.isEmpty():
+            # send messageAlive
+            msg = WiDCCProtocol.create_message(my_loco, "Alive")          
+            f_tcp_send_msg(msg)
+        else:
+            # create a for loop with 
+            # send msg_queue_out.get():
+            # sending max 2 messages
+            # not sure if it works...
+            # may be better to stick to
+            # only 1 message x connection
+            # it is easier to handle
+            # need to check if the in buffer
+            # gets full...
+            with msg_queue_out_lock:
+                msg = WiDCCProtocol.create_message(my_loco, msg_queue_out.get() )
+            f_tcp_send_msg(msg)
+        
+        # every 3 transmission automtically send a
+        # Status message    
+        if my_com_timer_counter >= 3:
+            my_com_timer_counter = 0
+            with msg_queue_out_lock:
+                msg_queue_out.insert("Status")
+        
+        my_com_timer_counter += 1
+            
+        # wait for the reply
+        msg = f_tcp_feedback_msg()
+        message = WiDCCProtocol.read_message(msg)
+        if not message.msg_type == "ACK":
+            with msg_queue_in_lock:
+                msg_queue_in.put(message)
+        
+    print("tcp_communication end")        
+        
 
 # WIFI_TCP_LINK: any final action needed before operation
 def f_wifi_tcp_link():
     print("WIFI_TCP_LINK")
     if not wifi.is_linked():
         my_state = States.WIFI_START
+        return 
+    try:    
+        my_socket.connect(my_config.server)
         
-    my_socket.connect(my_config.server)
+        # register our decoder to the server
+        msg = WiDCCProtocol.create_message(my_loco, "Login")
+        f_tcp_send_msg(msg)
+        
+        # wait for feedback
+        msg = f_tcp_feedback_msg()
+        
+        my_socket.close()
+        
+        message = WiDCCProtocol.read_message(msg)
+        
+        if message.type == 'Registered':
+            my_com_timer.interval( WiDCCProtocol.MSG_PERIOD, f_tcp_communication)
+            my_com_timer_counter = 0
+               
+            # if no error raised, move to running
+            my_state = States.RUNNING
+    except:
+        print("error by tcp link")
 
+
+# read and implement incoming messages
+def f_run_read_msg():
+    # once this function is reached better to clear 
+    # the message_in list to prevent overflow and to 
+    # execute the latest command in case 2 different 
+    # commands have been submitted in a row
+    print("run_read_message: %s unread", msg_queue_in.elements() )
+    while not msg_queue_in.isEmpty():
+        msg = msg_queue_in.get()
+        print(msg.msg_type)
+  
+def f_run_prepare_msg():
+    # space holder in case here something needs
+    # to be done
+    pass
+  
+def f_update_loco_status():
+    # updates the status variable of the loco
+    # any PID control to slowly adjust the speed
+    # is not included here.
     
+    # read variables in the my_loco a set/clear
+    # the pins
+    pass
+  
 # RUNNING: the loco is ready to run
 def f_running():
     print("RUNNING")
     if not wifi.is_linked():
         my_state = States.WIFI_START
         
+
+    # stop the timer if the tcp connection is broken
+    # useless if a new connection is started everytime?
+    _, _, err_list = select( [], [], socket_list, timeout = 0 )
+    if err_list:
+        my_com_timer.clear()        
+        my_state = States.WIFI_TCP_LINK
         
+    # check incoming messages
+    # do what has to be done
+    f_run_read_msg()
+    
+    # after reading the messages updates
+    # to be done once per cycle at least
+    f_update_loco_status()
+    
+    # add eventually new message to send
+    f_run_prepare_msg()
 
 # ERROR: special state where the loco informs about problems
 #        with special blinking patterns
@@ -147,3 +296,5 @@ while True:
         f_error()
     else:
         pass
+    
+    sleep(50)
