@@ -13,7 +13,7 @@ import socket
 import timers
 import config
 import threading
-
+import fifo
 
 # set up state machine
 class States():
@@ -40,8 +40,8 @@ my_socket_lock = threading.Lock()
 my_com_timer = timers.timer()
 my_com_timer_counter = 0
 my_config = config.Config()
-msg_queue_in = Fifo(4)
-msg_queue_out = Fifo(2)
+msg_queue_in = fifo.Fifo(4)
+msg_queue_out = fifo.Fifo(2)
 msg_queue_in_lock = threading.Lock()
 msg_queue_out_lock = threading.Lock()
 
@@ -81,7 +81,7 @@ def f_config():
     if my_config.id:
         my_loco.loco_id = my_config.id
     else:
-        my_loco.loco_id = random_number #look for embedded random function
+        my_loco.loco_id = random() #look for embedded random function
     
     # check if connection data are available
     if my_config.net ==  None:
@@ -120,26 +120,26 @@ def f_wifi_configure():
 # read and send helper functions for transmitting 
 # data over TCP
 def f_tcp_send_msg(msg):
-     # transmit a full message over TCP
-     # it checks if the message is fully 
-     # transmitted, if not reiterates
-     msg_len = len(msg)
-     sent_len = 0
-     while sent_len < msg_len:
-         buf_len = my_socket.send(msg[sent_len:])
-         sent_len += buf_len
+    # transmit a full message over TCP
+    # it checks if the message is fully 
+    # transmitted, if not reiterates
+    msg_len = len(msg)
+    sent_len = 0
+    while sent_len < msg_len:
+        buf_len = my_socket.send(msg[sent_len:])
+        sent_len += buf_len
 
 def f_tcp_feedback_msg():
-     # waits for the server reply - blocking!!!
-     
-     data = my_socket.recv(128)
-     sent_len = len(data)
-     while sent_len:
-         buf = my_socket.recv(128)
-         data += buf
-         sent_len = buf_len
+    # waits for the server reply - blocking!!!
+    
+    data = my_socket.recv(128)
+    sent_len = len(data)
+    while sent_len:
+        buf = my_socket.recv(128)
+        data += buf
+        sent_len = len(buf)
          
-     return data
+    return data
 
 # function to be threaded that handle communication
 # over tcp
@@ -148,42 +148,46 @@ def f_tcp_communication():
     
     # do I need lock on the socket to prevent
     # simultaneous connections attempt?
-    with my_socket_lock:
-        print("tcp_communication lock acquired")
-        my_socket.connect(my_config.server)
-        if msg_queue_out.isEmpty():
-            # send messageAlive
-            msg = WiDCCProtocol.create_message(my_loco, "Alive")          
-            f_tcp_send_msg(msg)
-        else:
-            # create a for loop with 
-            # send msg_queue_out.get():
-            # sending max 2 messages
-            # not sure if it works...
-            # may be better to stick to
-            # only 1 message x connection
-            # it is easier to handle
-            # need to check if the in buffer
-            # gets full...
-            with msg_queue_out_lock:
-                msg = WiDCCProtocol.create_message(my_loco, msg_queue_out.get() )
-            f_tcp_send_msg(msg)
-        
-        # every 3 transmission automtically send a
-        # Status message    
-        if my_com_timer_counter >= 3:
-            my_com_timer_counter = 0
-            with msg_queue_out_lock:
-                msg_queue_out.insert("Status")
-        
-        my_com_timer_counter += 1
+    my_socket_lock.acquire()
+    print("tcp_communication lock acquired")
+    my_socket.connect(my_config.server)
+    if msg_queue_out.isEmpty():
+        # send messageAlive
+        msg = WiDCCProtocol.create_message(my_loco, "Alive")          
+        f_tcp_send_msg(msg)
+    else:
+        # create a for loop with 
+        # send msg_queue_out.get():
+        # sending max 2 messages
+        # not sure if it works...
+        # may be better to stick to
+        # only 1 message x connection
+        # it is easier to handle
+        # need to check if the in buffer
+        # gets full...
+        msg_queue_out_lock.acquire()
+        msg = WiDCCProtocol.create_message(my_loco, msg_queue_out.get() )
+        msg_queue_out_lock.release()    
+        f_tcp_send_msg(msg)
+    my_socket_lock.release()
+
+    # every 3 transmission automtically send a
+    # Status message    
+    if my_com_timer_counter >= 3:
+        my_com_timer_counter = 0
+        msg_queue_out_lock.acquire()
+        msg_queue_out.insert("Status")
+        msg_queue_out_lock.release()
+    
+    my_com_timer_counter += 1
             
-        # wait for the reply
-        msg = f_tcp_feedback_msg()
-        message = WiDCCProtocol.read_message(msg)
-        if not message.msg_type == "ACK":
-            with msg_queue_in_lock:
-                msg_queue_in.put(message)
+    # wait for the reply
+    msg = f_tcp_feedback_msg()
+    message = WiDCCProtocol.read_message(msg)
+    if not message.msg_type == "ACK":
+        msg_queue_in_lock.acquire()
+        msg_queue_in.put(message)
+        msg_queue_in_lock.release()
         
     print("tcp_communication end")        
         
@@ -252,11 +256,11 @@ def f_running():
 
     # stop the timer if the tcp connection is broken
     # useless if a new connection is started everytime?
-    _, _, err_list = select( [], [], socket_list, timeout = 0 )
+    """_, _, err_list = select( [], [], socket_list, timeout = 0 )
     if err_list:
         my_com_timer.clear()        
         my_state = States.WIFI_TCP_LINK
-        
+    """
     # check incoming messages
     # do what has to be done
     f_run_read_msg()
