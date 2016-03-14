@@ -1,6 +1,6 @@
 import json
 
-class Config(object):
+class Config():
     def __init__(self):
         # first check the existance of a stored file
         stored_dict = None

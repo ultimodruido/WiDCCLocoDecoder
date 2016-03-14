@@ -6,6 +6,9 @@
 # readability of main.py
 ### ### ### ### ###
 
+import mem
+import WiDCCProtocol
+
 # read and send helper functions for transmitting 
 # data over TCP
 def f_tcp_send_msg(msg):
@@ -15,16 +18,16 @@ def f_tcp_send_msg(msg):
     msg_len = len(msg)
     sent_len = 0
     while sent_len < msg_len:
-        buf_len = my_socket.send(msg[sent_len:])
+        buf_len = mem.my_socket.send(msg[sent_len:])
         sent_len += buf_len
 
 def f_tcp_feedback_msg():
     # waits for the server reply - blocking!!!
     
-    data = my_socket.recv(128)
+    data = mem.my_socket.recv(128)
     sent_len = len(data)
     while sent_len:
-        buf = my_socket.recv(128)
+        buf = mem.my_socket.recv(128)
         data += buf
         sent_len = len(buf)
          
@@ -40,12 +43,12 @@ def f_tcp_communication():
     
     # do I need lock on the socket to prevent
     # simultaneous connections attempt?
-    my_socket_lock.acquire()
+    mem.my_socket_lock.acquire()
     print("tcp_communication lock acquired")
-    my_socket.connect(my_config.server)
-    if msg_queue_out.isEmpty():
+    mem.my_socket.connect(mem.my_config.server)
+    if mem.msg_queue_out.isEmpty():
         # send messageAlive
-        msg = WiDCCProtocol.create_message(my_loco, "Alive")          
+        msg = WiDCCProtocol.create_message(mem.my_loco, "Alive")          
         f_tcp_send_msg(msg)
     else:
         # create a for loop with 
@@ -57,29 +60,29 @@ def f_tcp_communication():
         # it is easier to handle
         # need to check if the in buffer
         # gets full...
-        msg_queue_out_lock.acquire()
-        msg = WiDCCProtocol.create_message(my_loco, msg_queue_out.get() )
-        msg_queue_out_lock.release()    
+        mem.msg_queue_out_lock.acquire()
+        msg = WiDCCProtocol.create_message(mem.my_loco, mem.msg_queue_out.get() )
+        mem.msg_queue_out_lock.release()    
         f_tcp_send_msg(msg)
-    my_socket_lock.release()
+    mem.my_socket_lock.release()
 
     # every 3 transmission automtically send a
     # Status message    
-    if my_com_timer_counter >= 3:
-        my_com_timer_counter = 0
-        msg_queue_out_lock.acquire()
-        msg_queue_out.insert("Status")
-        msg_queue_out_lock.release()
+    if mem.my_com_timer_counter >= 3:
+        mem.my_com_timer_counter = 0
+        mem.msg_queue_out_lock.acquire()
+        mem.msg_queue_out.insert("Status")
+        mem.msg_queue_out_lock.release()
     
-    my_com_timer_counter += 1
+    mem.my_com_timer_counter += 1
             
     # wait for the reply
     msg = f_tcp_feedback_msg()
     message = WiDCCProtocol.read_message(msg)
     if not message.msg_type == "ACK":
-        msg_queue_in_lock.acquire()
-        msg_queue_in.put(message)
-        msg_queue_in_lock.release()
+        mem.msg_queue_in_lock.acquire()
+        mem.msg_queue_in.put(message)
+        mem.msg_queue_in_lock.release()
         
     print("tcp_communication end")        
  
@@ -90,9 +93,9 @@ def f_run_read_msg():
     # the message_in list to prevent overflow and to 
     # execute the latest command in case 2 different 
     # commands have been submitted in a row
-    print("run_read_message: %s unread", msg_queue_in.elements() )
-    while not msg_queue_in.isEmpty():
-        msg = msg_queue_in.get()
+    print("run_read_message: %s unread", mem.msg_queue_in.elements() )
+    while not mem.msg_queue_in.isEmpty():
+        msg = mem.msg_queue_in.get()
         print(msg.msg_type)
   
 def f_run_prepare_msg():
