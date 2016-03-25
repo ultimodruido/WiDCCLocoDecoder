@@ -16,10 +16,17 @@ import threading
 #import fifo
 
 # import the global variable shared across modules
-# from memory_context import *
-# import mem.my_state as my_state
+# stored in the mem.py file. sadly zerinth doesn't
+# allow the direct import, so the module prefix has
+# to be used
 import mem
+# import extra funtions stored in the f.py file
 import f
+
+
+
+# everything should start from INIT :)
+mem.my_state = mem.States.INIT
 
 ###########################
 # states machine functions
@@ -42,11 +49,17 @@ def f_state_init():
     sleep(250)
     
     # set hw platform from config
-    # define digital pin IN/OUT
-    # TODO
+    # define digital pin IN/OUT 
+    # set motor, lights and function pins
+    try:
+        # check if better not to pass the loco variable
+        # but use the global one
+        mem.my_config.pin_cfg_photon_test(mem.my_loco)
     
-    # move to CONFIG
-    mem.my_state = mem.States.CONFIG
+        # if good move to CONFIG
+        mem.my_state = mem.States.CONFIG
+    except:
+        pass
 
 
 def f_state_config():
@@ -61,7 +74,8 @@ def f_state_config():
     print("STATE CONFIG")
 
     # read config.txt file
-    # set loco ID
+    # set loco ID - think if here is the right
+    # location for id setup
     if mem.my_config.loco_id:
         mem.my_loco.loco_id = mem.my_config.loco_id
     else:
@@ -139,8 +153,8 @@ def f_state_wifi_configure():
         test_socket.close()
         try:
             message = WiDCCProtocol.read_message(msg)
-            if message.msg_type == "Config":
-                mem.my_config.loco_id = message.loco_id
+            if message.msg_type == WiDCCProtocol.MsgTypes.WIFI_CONFIG:
+                #mem.my_config.loco_id = message.loco_id
                 mem.my_config.wifi_net = message.wifi_net
                 mem.my_config.wifi_pwd = message.wifi_pwd
                 mem.my_config.save()
@@ -173,7 +187,7 @@ def f_state_wifi_tcp_link():
         mem.my_socket.connect(mem.my_config.server)
         
         # register our decoder to the server
-        msg = WiDCCProtocol.create_message(mem.my_loco, "Login")
+        msg = WiDCCProtocol.create_message(mem.my_loco, WiDCCProtocol. )
         f.f_tcp_send_msg(msg)
         
         # wait for feedback
@@ -183,7 +197,7 @@ def f_state_wifi_tcp_link():
         
         message = WiDCCProtocol.read_message(msg)
         
-        if message.type == 'Registered':
+        if message.type == WiDCCProtocol.MsgTypes.REGISTERED:
             mem.my_com_timer.interval( WiDCCProtocol.MSG_PERIOD, f.f_tcp_communication)
             mem.my_com_timer_counter = 0
                

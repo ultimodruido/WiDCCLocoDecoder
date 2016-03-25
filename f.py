@@ -23,6 +23,7 @@ def f_tcp_send_msg(msg):
 
 def f_tcp_feedback_msg():
     # waits for the server reply - blocking!!!
+    # check if the setblocking(False) works
     
     data = mem.my_socket.recv(128)
     sent_len = len(data)
@@ -48,7 +49,7 @@ def f_tcp_communication():
     mem.my_socket.connect(mem.my_config.server)
     if mem.msg_queue_out.isEmpty():
         # send messageAlive
-        msg = WiDCCProtocol.create_message(mem.my_loco, "Alive")          
+        msg = WiDCCProtocol.create_message(mem.my_loco, WiDCCProtocol.MsgTypes.ALIVE )          
         f_tcp_send_msg(msg)
     else:
         # create a for loop with 
@@ -71,7 +72,7 @@ def f_tcp_communication():
     if mem.my_com_timer_counter >= 3:
         mem.my_com_timer_counter = 0
         mem.msg_queue_out_lock.acquire()
-        mem.msg_queue_out.insert("Status")
+        mem.msg_queue_out.insert( WiDCCProtocol.MsgTypes.STATUS )
         mem.msg_queue_out_lock.release()
     
     mem.my_com_timer_counter += 1
@@ -79,13 +80,38 @@ def f_tcp_communication():
     # wait for the reply
     msg = f_tcp_feedback_msg()
     message = WiDCCProtocol.read_message(msg)
-    if not message.msg_type == "ACK":
+    if not message.msg_type == WiDCCProtocol.MsgTypes.ACK:
         mem.msg_queue_in_lock.acquire()
         mem.msg_queue_in.put(message)
         mem.msg_queue_in_lock.release()
         
     print("tcp_communication end")        
- 
+
+# execute the instruction provided with a message 
+def f_exec_msg(msg):
+    elif msg_type == WiDCCProtocol.MsgTypes.REGISTERED:
+        # this message type is discrded in this
+        # state. it isonly considered at startup
+        pass
+    elif msg_type == WiDCCProtocol.MsgTypes.CONFIG:
+        # set loco id, max speed, and train mass
+        pass
+    elif msg_type == WiDCCProtocol.MsgTypes.STATUS:
+        # if this command is received somethig is 
+        # wrong the "Status" is only sent.
+        pass
+    elif msg_type == WiDCCProtocol.MsgTypes.COMMAND:
+        # here is something to do
+        pass
+    elif msg_type == WiDCCProtocol.MsgTypes.EMERGENCY:
+        # power off the motors
+        pass
+    elif msg_type == IDENTIFY:
+        # activate the identify blinking pattern
+        pass        
+    else:
+        pass
+
 
 # read and implement incoming messages
 def f_run_read_msg():
@@ -96,7 +122,8 @@ def f_run_read_msg():
     print("run_read_message: %s unread", mem.msg_queue_in.elements() )
     while not mem.msg_queue_in.isEmpty():
         msg = mem.msg_queue_in.get()
-        print(msg.msg_type)
+        print("Received message %s", msg.msg_type)
+        f_exec_msg(msg)
   
 def f_run_prepare_msg():
     # space holder in case here something needs
@@ -112,4 +139,3 @@ def f_update_loco_status():
     # the pins
     pass
   
-

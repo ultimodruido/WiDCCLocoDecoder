@@ -63,38 +63,78 @@ def _register_class(target_class):
     This class is reserved and shoudl only be used by the RegisterMeta class"""
     registry[target_class.__name__] = target_class
 
+class MsgTypes():
+    def __init__(self):
+        self.LOGIN = 0
+        self.REGISTERED = 
+        self.NOT_REGISTERED = 2
+        self.ACK = 3
+        self.CONFIG = 4
+        self.ALIVE = 5
+        self.STATUS = 6
+        self.COMMAND = 7
+        self.EMERGENCY = 8
+        self.IDENTIFY = 9
+        self.WIFI_CONFIG = 10
+        
+        self.name_list = [ 'Login', 'Regitered', ...
+            'Not registerd', 'ACK', 'Config', ... 
+            'Alive', 'Status', 'Command', ...
+            'Emergency', 'Identify', 'Wifi config']
+        
+    def decoder():
+        #list of allowed msgtypes
+        pass
+    def server():
+        #list of allowed msgtype
+        pass
+        
+    def type_name(index):
+        return self.name_list(index)
 
+        
 def read_message(json_txt):
+    # TODO: add error management
+    
+    """if not  isinstance(loco, WiDCCLocoDescriptor.LocoDescriptor):
+        raise WiDCCWrongLocoDescriptor
+    if not ("Message"+msg_type) in registry:
+        raise WrongMessageType  """ 
+    
     params = json.loads(json_txt)
     name = params['class']
     target_class = registry[name]
     return target_class(*params['args'])
 
 
-def create_message(loco, msg_type):
+def create_message_decoder(loco, msg_type):
     if not  isinstance(loco, WiDCCLocoDescriptor.LocoDescriptor):
         raise WrongLocoDescriptor
-    if not ("Message"+msg_type) in registry:
-        raise WrongMessageType
+    # TODO improve msgtype check with new enumclass
+    #if not ("Message"+msg_type) in registry:
+    #    raise WrongMessageType
 
-    if msg_type == 'Login':
+    if msg_type == MsgTypes.LOGIN:
         return MessageLogin(
             loco.loco_id, 
             loco.hardware['platform'], 
             loco.hardware['firmware']
         )
-    elif msg_type == 'Registered':
-        return MessageRegistered()
-    elif msg_type == 'Config':
-        return MessageConfig()
-    elif msg_type == 'Alive':
+    """elif msg_type == 'Registered':
+        return MessageRegistered()"""
+    """elif msg_type == 'Config':
+        return MessageConfig()"""
+    #elif msg_type == 'WifiConfig':
+    #    #error
+    #    return MessageWifiConfig()
+    elif msg_type == MsgTypes.ALIVE :
         return MessageAlive(
             loco.loco_id, 
             loco.real_speed, 
             loco.target_speed,
             loco.direction
         )
-    elif msg_type == 'Status':
+    elif msg_type == MsgTypes.STATUS:
         return MessageStatus(
             loco.loco_id, 
             loco.real_speed, 
@@ -105,7 +145,7 @@ def create_message(loco, msg_type):
             loco.F3, 
             loco.F4
         )
-    elif msg_type == 'Command':
+    """elif msg_type == 'Command':
         return MessageCommand(
             loco.loco_id, 
             loco.target_speed,
@@ -114,10 +154,14 @@ def create_message(loco, msg_type):
             loco.F2, 
             loco.F3, 
             loco.F4
-        )
-    elif msg_type == 'Emergency':
+        )"""
+    elif msg_type == MsgTypes.EMERGENCY:
         return MessageEmergency()
 
+def create_message_server():
+    # this funcion enables the preparation of 
+    # messages for the WiDCC server
+    pass
 
 class RegisterMeta(type):
     """Meta class that makes automatic the registration of a class for later
@@ -142,7 +186,7 @@ class BaseMessage(metaclass = RegisterMeta):
 class MessageLogin(BaseMessage):
     def __init__(self, loco_id, decoder_hardware_version, decoder_software_version):
         BaseMessage().__init__(loco_id, decoder_hardware_version, decoder_software_version)
-        self.msg_type = 'Login'
+        self.msg_type = MsgTypes.LOGIN
         self.loco_id = loco_id
         self.decoder_hardware_version = decoder_hardware_version
         self.decoder_software_version = decoder_software_version
@@ -151,31 +195,34 @@ class MessageLogin(BaseMessage):
 class MessageRegistered(BaseMessage):
     def __init__(self):
         BaseMessage().__init__()
-        self.msg_type = 'Registered'
+        self.msg_type = MsgTypes.REGISTERED
         
         
 class MessageNotRegistered(BaseMessage):
     def __init__(self):
         BaseMessage().__init__()
-        self.msg_type = 'NotRegistered'
+        self.msg_type = MsgTypes.NOT_REGISTERED
 
 
 class MessageACK(BaseMessage):
     def __init__(self):
         BaseMessage().__init__()
-        self.msg_type = 'ACK'
+        self.msg_type = MsgTypes.ACK
 
 
 class MessageConfig(BaseMessage):
-    def __init__(self):
+    def __init__(self, id, max_speed, mass):
         BaseMessage().__init__()
-        self.msg_type = 'Emergency'
+        self.msg_type = MsgTypes.CONFIG
+        self.id = id
+        self.mass = mass
+        self.max_speed = max_speed
 
 
 class MessageAlive(BaseMessage):
     def __init__(self, loco_id, loco_real_speed, loco_target_speed, loco_direction):
         BaseMessage().__init__(loco_id, loco_real_speed, loco_target_speed, loco_direction)
-        self.msg_type = 'Alive'
+        self.msg_type = MsgTypes.ALIVE
         self.loco_id = loco_id
         self.loco_real_speed = loco_real_speed
         self.loco_target_speed = loco_target_speed
@@ -187,7 +234,7 @@ class MessageStatus(BaseMessage):
                  loco_direction, F1, F2, F3, F4):
         BaseMessage().__init__(loco_id, loco_real_speed, loco_target_speed,
                                loco_direction, F1, F2, F3, F4)
-        self.msg_type = 'Status'
+        self.msg_type = MsgTypes.STATUS
         self.loco_id = loco_id
         self.loco_real_speed = loco_real_speed
         self.loco_target_speed = loco_target_speed
@@ -201,7 +248,7 @@ class MessageStatus(BaseMessage):
 class MessageCommand(BaseMessage):
     def __init__(self,loco_target_speed, loco_direction, F1, F2, F3, F4):
         BaseMessage().__init__(loco_target_speed, loco_direction, F1, F2, F3, F4)
-        self.msg_type = 'Command'
+        self.msg_type = MsgTypes.COMMAND
         self.loco_target_speed = loco_target_speed
         self.loco_direction = loco_direction
         self.F1 = F1
@@ -213,20 +260,22 @@ class MessageCommand(BaseMessage):
 class MessageEmergency(BaseMessage):
     def __init__(self):
         BaseMessage().__init__()
-        self.msg_type = 'Emergency'
+        self.msg_type = MsgTypes.EMERGENCY
 
 
 class MessageIdentify(BaseMessage):
     def __init__(self):
         BaseMessage().__init__()
-        self.msg_type = 'Identify'
+        self.msg_type = MsgTypes.IDENTIFY
 
 
 class MessageWiFiConfig(BaseMessage):
-    def __init__(self):
+    def __init__(self, net, pwd):
         BaseMessage().__init__()
-        self.msg_type = 'WiFiConfig'
-        #add parameters
+        self.msg_type = MsgTypes.WIFI_CONFIG
+        self.wifi_net = net
+        self.wifi_pwd = pwd
+        
         
         
 

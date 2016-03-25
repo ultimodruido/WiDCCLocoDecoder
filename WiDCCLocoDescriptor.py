@@ -28,6 +28,7 @@ class LocoDescriptor():
         #                    'pwd' : None }
                         
         self.pins.motor = None
+        self.pins.direction = None
         self.pins.light_front = None
         self.pins.light_rear = None
         self.pins.F1 = None

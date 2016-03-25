@@ -19,7 +19,8 @@ class States():
         
 
 # everything should start from INIT :)
-my_state = States.INIT
+# moved to main.py
+# my_state = States.INIT
 
 # creating the global variables
 my_loco = WiDCCLocoDescriptor.LocoDescriptor()
@@ -33,4 +34,3 @@ msg_queue_in = fifo.Fifo(4)
 msg_queue_out = fifo.Fifo(2)
 msg_queue_in_lock = threading.Lock()
 msg_queue_out_lock = threading.Lock()
-

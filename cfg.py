@@ -36,5 +36,36 @@ class Config():
             wifi_pwd = "Cnfig_87246" )
         return data
         
-    
+    def pin_cfg_photon_test(loco):
+        """ ### ### ### ###
+        # sets the pin configuration for the test
+        # hw basen on the particle photon.
+        # takes the loco descriptor and stores the
+        # hw pins setup of the following features:
+        # 1 - motor control
+        # 2 - direction
+        # 3 - light front
+        # 4 - light rear
+        # no extra functions are considered
+        ### ### ### ### """
+        try:               
+            loco.pins.motor = D12
+            loco.pins.direction = D7
+            loco.pins.light_front = D13
+            loco.pins.light_rear = D14
         
+            # set the pins as digital output
+            # TODO
+            pinMode( loco.pins.motor = OUTPUT )
+            pinMode( loco.pins.direction = OUTPUT )
+            pinMode( loco.pins.light_front = OUTPUT )
+            pinMode( loco.pins.light_rear = OUTPUT )
+            
+        except:
+            raise PinSetupError
+
+
+
+# exceptions definition    
+new_exception(Error, Exception, "Error in Config()")     
+new_exception(PinSetupError, Error, "Error configuring HW pins") 
