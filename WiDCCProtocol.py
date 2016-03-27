@@ -66,7 +66,7 @@ def _register_class(target_class):
 class MsgTypes():
     def __init__(self):
         self.LOGIN = 0
-        self.REGISTERED = 
+        self.REGISTERED = 1
         self.NOT_REGISTERED = 2
         self.ACK = 3
         self.CONFIG = 4
@@ -77,19 +77,19 @@ class MsgTypes():
         self.IDENTIFY = 9
         self.WIFI_CONFIG = 10
         
-        self.name_list = [ 'Login', 'Regitered', ...
-            'Not registerd', 'ACK', 'Config', ... 
-            'Alive', 'Status', 'Command', ...
+        self.name_list = [ 'Login', 'Regitered', 
+            'Not registerd', 'ACK', 'Config',  
+            'Alive', 'Status', 'Command', 
             'Emergency', 'Identify', 'Wifi config']
         
-    def decoder():
+    def decoder(self):
         #list of allowed msgtypes
         pass
-    def server():
+    def server(self):
         #list of allowed msgtype
         pass
         
-    def type_name(index):
+    def type_name(self, index):
         return self.name_list(index)
 
         
@@ -120,14 +120,7 @@ def create_message_decoder(loco, msg_type):
             loco.hardware['platform'], 
             loco.hardware['firmware']
         )
-    """elif msg_type == 'Registered':
-        return MessageRegistered()"""
-    """elif msg_type == 'Config':
-        return MessageConfig()"""
-    #elif msg_type == 'WifiConfig':
-    #    #error
-    #    return MessageWifiConfig()
-    elif msg_type == MsgTypes.ALIVE :
+    elif msg_type == MsgTypes.ALIVE:
         return MessageAlive(
             loco.loco_id, 
             loco.real_speed, 
@@ -145,16 +138,6 @@ def create_message_decoder(loco, msg_type):
             loco.F3, 
             loco.F4
         )
-    """elif msg_type == 'Command':
-        return MessageCommand(
-            loco.loco_id, 
-            loco.target_speed,
-            loco.direction, 
-            loco.F1, 
-            loco.F2, 
-            loco.F3, 
-            loco.F4
-        )"""
     elif msg_type == MsgTypes.EMERGENCY:
         return MessageEmergency()
 

@@ -187,7 +187,7 @@ def f_state_wifi_tcp_link():
         mem.my_socket.connect(mem.my_config.server)
         
         # register our decoder to the server
-        msg = WiDCCProtocol.create_message(mem.my_loco, WiDCCProtocol. )
+        msg = WiDCCProtocol.create_message(mem.my_loco, WiDCCProtocol.MsgTypes.LOGIN )
         f.f_tcp_send_msg(msg)
         
         # wait for feedback

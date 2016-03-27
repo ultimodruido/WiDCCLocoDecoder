@@ -56,11 +56,10 @@ class Config():
         
             # set the pins as digital output
             # TODO
-            pinMode( loco.pins.motor = OUTPUT )
-            pinMode( loco.pins.direction = OUTPUT )
-            pinMode( loco.pins.light_front = OUTPUT )
-            pinMode( loco.pins.light_rear = OUTPUT )
-            
+            pinMode( loco.pins.motor, OUTPUT )
+            pinMode( loco.pins.direction, OUTPUT )
+            pinMode( loco.pins.light_front, OUTPUT )
+            pinMode( loco.pins.light_rear, OUTPUT )
         except:
             raise PinSetupError
 

@@ -88,11 +88,11 @@ def f_tcp_communication():
     print("tcp_communication end")        
 
 # execute the instruction provided with a message 
-def f_exec_msg(msg):
-    elif msg_type == WiDCCProtocol.MsgTypes.REGISTERED:
-        # this message type is discrded in this
-        # state. it isonly considered at startup
-        pass
+def f_exec_msg(msg_type):
+    if msg_type == WiDCCProtocol.MsgTypes.REGISTERED:
+        print("REGISTERED")
+        # this message type is discarded in this
+        # state. it is only considered at startup
     elif msg_type == WiDCCProtocol.MsgTypes.CONFIG:
         # set loco id, max speed, and train mass
         pass
@@ -106,9 +106,9 @@ def f_exec_msg(msg):
     elif msg_type == WiDCCProtocol.MsgTypes.EMERGENCY:
         # power off the motors
         pass
-    elif msg_type == IDENTIFY:
+    elif msg_type == WiDCCProtocol.MsgTypes.IDENTIFY:
         # activate the identify blinking pattern
-        pass        
+        pass
     else:
         pass
 
